@@ -29,3 +29,28 @@ export const getTasks = async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({ message: 'Error al obtener las tareas' });
   }
 };
+
+// Actualizar el estado de una tarea
+export const updateTaskStatus = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const validStatuses = ['Pendiente', 'En progreso', 'Completada'];
+    if (!status || !validStatuses.includes(status)) {
+      res.status(400).json({ message: 'Estado inválido' });
+      return;
+    }
+
+    const task = await Task.findByIdAndUpdate(id, { status }, { new: true });
+    if (!task) {
+      res.status(404).json({ message: 'Tarea no encontrada' });
+      return;
+    }
+
+    res.json(task);
+  } catch (error) {
+    console.error('Error al actualizar tarea:', error);
+    res.status(500).json({ message: 'Error al actualizar la tarea' });
+  }
+};
