@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import ListItemSecondaryAction from '@mui/material/ListItemSecondaryAction';
+import IconButton from '@mui/material/IconButton';
+import Button from '@mui/material/Button';
+import Typography from '@mui/material/Typography';
+import CircularProgress from '@mui/material/CircularProgress';
+import Swal from 'sweetalert2';
 
 type Task = {
   _id: string;
@@ -20,7 +29,7 @@ export default function TaskList() {
       setTasks(res.data);
     } catch (err) {
       console.error(err);
-      alert('Error al obtener tareas');
+      Swal.fire({ icon: 'error', title: 'Error', text: 'Error al obtener tareas' });
     } finally {
       setLoading(false);
     }
@@ -28,42 +37,49 @@ export default function TaskList() {
 
   useEffect(() => {
     fetchTasks();
+    const handler = () => fetchTasks();
+    window.addEventListener('tasks:updated', handler);
+    return () => window.removeEventListener('tasks:updated', handler);
   }, []);
 
   const updateStatus = async (id: string, status: string) => {
     try {
       await axios.put(`/tasks/${id}`, { status });
       fetchTasks();
+      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Estado actualizado', timer: 1500, showConfirmButton: false });
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Error al actualizar';
-      alert(msg);
+      Swal.fire({ icon: 'error', title: 'Error', text: msg });
     }
   };
 
-  if (loading) return <p>Cargando...</p>;
+  if (loading) return <CircularProgress />;
 
   return (
     <div>
-      <h2>Tareas</h2>
-      <ul>
+      <Typography variant="h6" gutterBottom>Tareas</Typography>
+      <List>
         {tasks.map(t => (
-          <li key={t._id} className="task">
-            <div>
-              <strong>{t.title}</strong> — <em>{t.status}</em>
-              <p>{t.description}</p>
-              <small>{new Date(t.createdAt).toLocaleString()}</small>
-            </div>
-            <div className="actions">
+          <ListItem key={t._id} divider>
+            <ListItemText
+              primary={`${t.title} — ${t.status}`}
+              secondary={<>
+                <Typography component="span" variant="body2" color="text.primary">{t.description}</Typography>
+                <br />
+                <small>{new Date(t.createdAt).toLocaleString()}</small>
+              </>}
+            />
+            <ListItemSecondaryAction>
               {t.status !== 'Completada' && (
-                <button onClick={() => updateStatus(t._id, 'Completada')}>Marcar completada</button>
+                <Button variant="contained" color="success" size="small" onClick={() => updateStatus(t._id, 'Completada')}>Completada</Button>
               )}
               {t.status !== 'En progreso' && (
-                <button onClick={() => updateStatus(t._id, 'En progreso')}>Marcar en progreso</button>
+                <Button variant="outlined" color="primary" size="small" onClick={() => updateStatus(t._id, 'En progreso')} sx={{ ml: 1 }}>En progreso</Button>
               )}
-            </div>
-          </li>
+            </ListItemSecondaryAction>
+          </ListItem>
         ))}
-      </ul>
+      </List>
     </div>
   );
 }
