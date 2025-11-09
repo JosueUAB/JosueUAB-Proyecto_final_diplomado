@@ -1,15 +1,22 @@
 import { ITask } from '../models/task';
 import AppError from '../utils/AppError';
 import { ITaskRepository, MongooseTaskRepository } from '../repositories/taskRepository';
+import { ITaskStatusValidator, TaskStatusValidator } from './validators/TaskStatusValidator';
 
 export class TaskService {
-  private repo: ITaskRepository;
+  private readonly statusValidator: ITaskStatusValidator;
 
-  constructor(repo?: ITaskRepository) {
-    this.repo = repo ?? new MongooseTaskRepository();
+  constructor(
+    private readonly repo: ITaskRepository,
+    statusValidator?: ITaskStatusValidator
+  ) {
+    this.statusValidator = statusValidator ?? new TaskStatusValidator();
   }
 
   async createTask(data: Partial<ITask>): Promise<ITask> {
+    if (data.status) {
+      this.statusValidator.validateStatus(data.status);
+    }
     return this.repo.create(data);
   }
 
@@ -24,23 +31,16 @@ export class TaskService {
   }
 
   async updateTaskStatus(id: string, status: string): Promise<ITask> {
-    const validStatuses = ['Pendiente', 'En progreso', 'Completada'];
-    if (!validStatuses.includes(status)) {
-      throw new AppError('Estado inválido', 400);
-    }
-
+    this.statusValidator.validateStatus(status);
+    
     const task = await this.repo.updateStatus(id, status);
     if (!task) throw new AppError('Tarea no encontrada', 404);
     return task;
   }
 
   async updateTask(id: string, data: Partial<ITask>): Promise<ITask> {
-    // If status provided, validate
     if (data.status) {
-      const validStatuses = ['Pendiente', 'En progreso', 'Completada'];
-      if (!validStatuses.includes(data.status)) {
-        throw new AppError('Estado inválido', 400);
-      }
+      this.statusValidator.validateStatus(data.status);
     }
 
     const updated = await this.repo.update(id, data);
@@ -50,4 +50,4 @@ export class TaskService {
 }
 
 // Exportar una instancia por defecto usando MongooseTaskRepository
-export const taskService = new TaskService();
+export const taskService = new TaskService(new MongooseTaskRepository());

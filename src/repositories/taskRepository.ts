@@ -1,12 +1,5 @@
 import Task, { ITask } from '../models/task';
-
-export interface ITaskRepository {
-  create(data: Partial<ITask>): Promise<ITask>;
-  findAll(): Promise<ITask[]>;
-  findById(id: string): Promise<ITask | null>;
-  updateStatus(id: string, status: string): Promise<ITask | null>;
-  update(id: string, data: Partial<ITask>): Promise<ITask | null>;
-}
+import { ITaskRepository } from './interfaces/ITaskRepository';
 
 export class MongooseTaskRepository implements ITaskRepository {
   async create(data: Partial<ITask>): Promise<ITask> {
