@@ -31,7 +31,18 @@ export const updateTaskStatus = async (req: Request, res: Response, next: NextFu
   try {
     const { id } = req.params;
     const { status } = req.body;
-  const updated = await taskService.updateTaskStatus(id, status);
+    const updated = await taskService.updateTaskStatus(id, status);
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateTask = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const data = req.body;
+    const updated = await taskService.updateTask(id, data as any);
     res.json(updated);
   } catch (error) {
     next(error);

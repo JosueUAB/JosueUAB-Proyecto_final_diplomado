@@ -33,6 +33,20 @@ export class TaskService {
     if (!task) throw new AppError('Tarea no encontrada', 404);
     return task;
   }
+
+  async updateTask(id: string, data: Partial<ITask>): Promise<ITask> {
+    // If status provided, validate
+    if (data.status) {
+      const validStatuses = ['Pendiente', 'En progreso', 'Completada'];
+      if (!validStatuses.includes(data.status)) {
+        throw new AppError('Estado inválido', 400);
+      }
+    }
+
+    const updated = await this.repo.update(id, data);
+    if (!updated) throw new AppError('Tarea no encontrada', 404);
+    return updated;
+  }
 }
 
 // Exportar una instancia por defecto usando MongooseTaskRepository

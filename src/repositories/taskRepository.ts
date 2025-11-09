@@ -5,6 +5,7 @@ export interface ITaskRepository {
   findAll(): Promise<ITask[]>;
   findById(id: string): Promise<ITask | null>;
   updateStatus(id: string, status: string): Promise<ITask | null>;
+  update(id: string, data: Partial<ITask>): Promise<ITask | null>;
 }
 
 export class MongooseTaskRepository implements ITaskRepository {
@@ -15,7 +16,8 @@ export class MongooseTaskRepository implements ITaskRepository {
   }
 
   async findAll(): Promise<ITask[]> {
-    return Task.find().sort({ createdAt: -1 });
+    // Order by position (asc) then createdAt desc
+    return Task.find().sort({ position: 1, createdAt: -1 });
   }
 
   async findById(id: string): Promise<ITask | null> {
@@ -24,5 +26,9 @@ export class MongooseTaskRepository implements ITaskRepository {
 
   async updateStatus(id: string, status: string): Promise<ITask | null> {
     return Task.findByIdAndUpdate(id, { status }, { new: true });
+  }
+
+  async update(id: string, data: Partial<ITask>): Promise<ITask | null> {
+    return Task.findByIdAndUpdate(id, data, { new: true });
   }
 }

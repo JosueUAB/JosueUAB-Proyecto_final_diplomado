@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body, param } from 'express-validator';
-import { createTask, getTasks, updateTaskStatus, getTaskById } from '../controllers/taskController';
+import { createTask, getTasks, updateTaskStatus, getTaskById, updateTask } from '../controllers/taskController';
 import validateRequest from '../middlewares/validationMiddleware';
 
 const router = Router();
@@ -20,11 +20,12 @@ router.get('/', getTasks);
 router.get('/:id', [param('id').isMongoId().withMessage('ID inválido')], validateRequest, getTaskById);
 
 // PUT /tasks/:id -> actualizar estado
+// PUT /tasks/:id -> actualizar (titulo, descripcion, status, labels, position)
 router.put(
 	'/:id',
-	[param('id').isMongoId().withMessage('ID inválido'), body('status').notEmpty().withMessage('Estado es requerido')],
+	[param('id').isMongoId().withMessage('ID inválido')],
 	validateRequest,
-	updateTaskStatus
+	updateTask
 );
 
 export default router;
