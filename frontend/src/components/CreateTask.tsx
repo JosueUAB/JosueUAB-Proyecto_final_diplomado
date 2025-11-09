@@ -28,12 +28,17 @@ export default function CreateTask() {
       const details = err?.response?.data?.details || err?.response?.data?.message || 'Error';
       Swal.fire({ icon: 'error', title: 'Error', html: Array.isArray(details) ? details.map((d: any) => `${d.field}: ${d.message}`).join('<br/>') : details });
     }
+  import Stack from '@mui/material/Stack';
+  import SendIcon from '@mui/icons-material/Send';
   };
 
-  return (
-    <Box component="form" onSubmit={submit} sx={{ display: 'flex', gap: 2, mb: 3 }}>
-      <TextField label="Título" value={title} onChange={e => setTitle(e.target.value)} fullWidth />
-      <TextField label="Descripción" value={description} onChange={e => setDescription(e.target.value)} fullWidth />
+      <Box component="form" onSubmit={submit} sx={{ mb: 2 }}>
+        <Stack spacing={1}>
+          <TextField label="Título" value={title} onChange={e => setTitle(e.target.value)} fullWidth />
+          <TextField label="Descripción" value={description} onChange={e => setDescription(e.target.value)} fullWidth multiline rows={3} />
+          <Button type="submit" variant="contained" endIcon={<SendIcon />}>Crear tarea</Button>
+        </Stack>
+      </Box>
       <Button variant="contained" color="primary" type="submit">Crear</Button>
     </Box>
   );

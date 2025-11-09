@@ -8,10 +8,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.5",
+    "@mui/material": "^7.3.5",
     "axios": "^1.4.0",
     "proyecto-arista-diplomado": "file:..",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "sweetalert2": "^11.26.3"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",
