@@ -3,6 +3,8 @@ import axios from 'axios';
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
+import Stack from '@mui/material/Stack';
+import SendIcon from '@mui/icons-material/Send';
 import Swal from 'sweetalert2';
 
 export default function CreateTask() {
@@ -26,20 +28,21 @@ export default function CreateTask() {
       });
     } catch (err: any) {
       const details = err?.response?.data?.details || err?.response?.data?.message || 'Error';
-      Swal.fire({ icon: 'error', title: 'Error', html: Array.isArray(details) ? details.map((d: any) => `${d.field}: ${d.message}`).join('<br/>') : details });
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        html: Array.isArray(details) ? details.map((d: any) => `${d.field}: ${d.message}`).join('<br/>') : String(details),
+      });
     }
-  import Stack from '@mui/material/Stack';
-  import SendIcon from '@mui/icons-material/Send';
   };
 
-      <Box component="form" onSubmit={submit} sx={{ mb: 2 }}>
-        <Stack spacing={1}>
-          <TextField label="Título" value={title} onChange={e => setTitle(e.target.value)} fullWidth />
-          <TextField label="Descripción" value={description} onChange={e => setDescription(e.target.value)} fullWidth multiline rows={3} />
-          <Button type="submit" variant="contained" endIcon={<SendIcon />}>Crear tarea</Button>
-        </Stack>
-      </Box>
-      <Button variant="contained" color="primary" type="submit">Crear</Button>
+  return (
+    <Box component="form" onSubmit={submit} sx={{ mb: 2 }}>
+      <Stack spacing={1}>
+        <TextField label="Título" value={title} onChange={e => setTitle(e.target.value)} fullWidth />
+        <TextField label="Descripción" value={description} onChange={e => setDescription(e.target.value)} fullWidth multiline rows={3} />
+        <Button type="submit" variant="contained" endIcon={<SendIcon />}>Crear tarea</Button>
+      </Stack>
     </Box>
   );
 }
