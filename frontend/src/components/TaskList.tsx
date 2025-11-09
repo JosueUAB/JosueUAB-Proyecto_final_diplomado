@@ -19,6 +19,11 @@ import Tooltip from '@mui/material/Tooltip';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import EditTaskDialog from './EditTaskDialog';
 import CreateTaskDialog from './CreateTaskDialog';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+// Button already imported above
 
 type Task = {
   _id: string;
@@ -58,7 +63,25 @@ export default function TaskList({ themeMode }: { themeMode?: 'light' | 'dark' }
     fetchTasks();
     const handler = () => fetchTasks();
     window.addEventListener('tasks:updated', handler);
-    return () => window.removeEventListener('tasks:updated', handler);
+    // Listen for created tasks and add them locally to avoid full refetch/reload
+    const onCreated = (e: any) => {
+      const created = e?.detail;
+      if (!created) return;
+      setTasks(prev => {
+        if (prev.find(t => t._id === created._id)) return prev;
+        const next = [...prev, created];
+        const total = next.length;
+        const completed = next.filter(t => t.status === 'Completada').length;
+        const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
+        window.dispatchEvent(new CustomEvent('tasks:progress', { detail: { total, completed, percent } }));
+        return next;
+      });
+    };
+    window.addEventListener('tasks:created', onCreated as EventListener);
+    return () => {
+      window.removeEventListener('tasks:updated', handler);
+      window.removeEventListener('tasks:created', onCreated as EventListener);
+    };
   }, []);
 
   // allow AppBar to open the create dialog via a custom event
@@ -69,20 +92,72 @@ export default function TaskList({ themeMode }: { themeMode?: 'light' | 'dark' }
   }, []);
 
   const moveTask = async (id: string, to: string) => {
-    // optimistic update
     const prev = tasks;
     const moved = prev.find(t => t._id === id);
     if (!moved) return;
-    const newTasks = prev.map(t => t._id === id ? { ...t, status: to } : t);
+
+    const needsConfirm = (to === 'Pendiente' && moved.status !== 'Pendiente') || (to === 'Completada' && moved.status !== 'Completada');
+    if (needsConfirm) {
+      setConfirm({ open: true, id, from: moved.status, to, apply: async () => {
+        // perform the actual move
+        const prevState = tasks;
+        const newTasks = prevState.map(t => t._id === id ? { ...t, status: to } : t);
+        setTasks(newTasks);
+        setSnack({ open: true, message: 'Moviendo...', severity: 'info' });
+        try {
+          await axios.put(`/tasks/${id}`, { status: to });
+          setSnack({ open: true, message: getStatusMessage(to), severity: 'success' });
+          const total = newTasks.length;
+          const completed = newTasks.filter(t => t.status === 'Completada').length;
+          const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
+          window.dispatchEvent(new CustomEvent('tasks:progress', { detail: { total, completed, percent } }));
+        } catch (err: any) {
+          setTasks(prevState);
+          setSnack({ open: true, message: err?.response?.data?.message || 'Error al actualizar', severity: 'error' });
+        }
+      }});
+      return;
+    }
+
+    // No confirmation needed -> perform immediately
+    const prevState = tasks;
+    const newTasks = prevState.map(t => t._id === id ? { ...t, status: to } : t);
     setTasks(newTasks);
     setSnack({ open: true, message: 'Moviendo...', severity: 'info' });
     try {
       await axios.put(`/tasks/${id}`, { status: to });
-      setSnack({ open: true, message: 'Estado actualizado', severity: 'success' });
+      setSnack({ open: true, message: getStatusMessage(to), severity: 'success' });
+      const total = newTasks.length;
+      const completed = newTasks.filter(t => t.status === 'Completada').length;
+      const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
+      window.dispatchEvent(new CustomEvent('tasks:progress', { detail: { total, completed, percent } }));
     } catch (err: any) {
-      setTasks(prev);
+      setTasks(prevState);
       setSnack({ open: true, message: err?.response?.data?.message || 'Error al actualizar', severity: 'error' });
     }
+  };
+
+  const [confirm, setConfirm] = useState<{ open: boolean; id?: string; from?: string; to?: string; apply?: (() => Promise<void>) } | null>(null);
+
+  const handleConfirmClose = () => setConfirm(null);
+  // Show snackbar when user cancels confirmation
+  const handleConfirmCancel = () => {
+    setConfirm(null);
+    setSnack({ open: true, message: 'Movimiento cancelado', severity: 'info' });
+  };
+
+  const handleConfirmAccept = async () => {
+    if (confirm?.apply) {
+      await confirm.apply();
+    }
+    setConfirm(null);
+  };
+
+  const getStatusMessage = (status: string) => {
+    if (status === 'Pendiente') return 'Tarea por hacer';
+    if (status === 'En progreso') return 'Tarea en progreso';
+    if (status === 'Completada') return 'Tarea completada';
+    return 'Estado actualizado';
   };
 
   const onDragEnd = async (result: DropResult) => {
@@ -97,7 +172,7 @@ export default function TaskList({ themeMode }: { themeMode?: 'light' | 'dark' }
     const newStatus = destination.droppableId;
     const newPosition = destination.index;
 
-    // optimistic reorder locally
+    // prepare optimistic reorder locally
     const prev = tasks;
     const without = prev.filter(t => t._id !== movedTask._id);
     const updatedMoved = { ...movedTask, status: newStatus, position: newPosition };
@@ -111,11 +186,39 @@ export default function TaskList({ themeMode }: { themeMode?: 'light' | 'dark' }
         newTasksList.push(...without.filter(t => t.status === col.key));
       }
     }
+
+    const needsConfirm = (newStatus === 'Pendiente' && movedTask.status !== 'Pendiente') || (newStatus === 'Completada' && movedTask.status !== 'Completada');
+    if (needsConfirm) {
+      // Ask confirmation before applying drag move
+      setConfirm({ open: true, id: movedTask._id, from: movedTask.status, to: newStatus, apply: async () => {
+        const prevState = tasks;
+        setTasks(newTasksList);
+        setSnack({ open: true, message: 'Moviendo...', severity: 'info' });
+        try {
+          await axios.put(`/tasks/${movedTask._id}`, { status: newStatus, position: newPosition });
+          setSnack({ open: true, message: getStatusMessage(newStatus), severity: 'success' });
+          const total = newTasksList.length;
+          const completed = newTasksList.filter(t => t.status === 'Completada').length;
+          const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
+          window.dispatchEvent(new CustomEvent('tasks:progress', { detail: { total, completed, percent } }));
+        } catch (err: any) {
+          setTasks(prevState);
+          setSnack({ open: true, message: err?.response?.data?.message || 'No se pudo mover', severity: 'error' });
+        }
+      }});
+      return;
+    }
+
+    // No confirmation needed -> perform optimistic update immediately
     setTasks(newTasksList);
     setSnack({ open: true, message: 'Moviendo...', severity: 'info' });
     try {
       await axios.put(`/tasks/${movedTask._id}`, { status: newStatus, position: newPosition });
-      setSnack({ open: true, message: 'Tarea movida', severity: 'success' });
+      setSnack({ open: true, message: getStatusMessage(newStatus), severity: 'success' });
+      const total = newTasksList.length;
+      const completed = newTasksList.filter(t => t.status === 'Completada').length;
+      const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
+      window.dispatchEvent(new CustomEvent('tasks:progress', { detail: { total, completed, percent } }));
     } catch (err: any) {
       setTasks(prev);
       setSnack({ open: true, message: err?.response?.data?.message || 'No se pudo mover', severity: 'error' });
@@ -225,21 +328,49 @@ export default function TaskList({ themeMode }: { themeMode?: 'light' | 'dark' }
                                         </Box>
                                         <Box sx={{ ml: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                                           <Tooltip title="Editar tarea">
-                                            <IconButton size="large" aria-label="Editar tarea" onClick={() => openEdit(t)} color="secondary">
+                                            <IconButton size="large" aria-label="Editar tarea" onClick={() => openEdit(t)} sx={{ color: themeMode === 'dark' ? '#fff' : undefined }}>
                                               <MoreHorizIcon fontSize="large" />
                                             </IconButton>
                                           </Tooltip>
                                           <Box sx={{ display: 'flex', gap: 0.5 }}>
-                                            {col.key !== 'Pendiente' && (
-                                              <IconButton size="large" color="primary" onClick={() => moveTask(t._id, col.key === 'En progreso' ? 'Pendiente' : 'En progreso')} title="Mover a columna anterior">
-                                                <ArrowBackIcon fontSize="large" />
-                                              </IconButton>
-                                            )}
-                                            {col.key !== 'Completada' && (
-                                              <IconButton size="large" color="success" onClick={() => moveTask(t._id, col.key === 'Pendiente' ? 'En progreso' : 'Completada')} title="Mover a columna siguiente">
-                                                <ArrowForwardIcon fontSize="large" />
-                                              </IconButton>
-                                            )}
+                                            {col.key !== 'Pendiente' && (() => {
+                                              const to = col.key === 'En progreso' ? 'Pendiente' : 'En progreso';
+                                              const label = to === 'Pendiente' ? 'Por hacer' : to;
+                                              return (
+                                                <Tooltip title={`Mover a ${label}`} key={`back-${t._id}`}>
+                                                  <IconButton
+                                                    size="large"
+                                                    onClick={() => moveTask(t._id, to)}
+                                                    sx={{
+                                                      bgcolor: themeMode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                                                      color: themeMode === 'dark' ? '#fff' : undefined,
+                                                      '&:hover': { bgcolor: themeMode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }
+                                                    }}
+                                                  >
+                                                    <ArrowBackIcon fontSize="large" />
+                                                  </IconButton>
+                                                </Tooltip>
+                                              );
+                                            })()}
+                                            {col.key !== 'Completada' && (() => {
+                                              const to = col.key === 'Pendiente' ? 'En progreso' : 'Completada';
+                                              const label = to === 'Completada' ? 'Completada' : to === 'En progreso' ? 'En progreso' : 'Por hacer';
+                                              return (
+                                                <Tooltip title={`Mover a ${label}`} key={`forward-${t._id}`}>
+                                                  <IconButton
+                                                    size="large"
+                                                    onClick={() => moveTask(t._id, to)}
+                                                    sx={{
+                                                      bgcolor: themeMode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                                                      color: themeMode === 'dark' ? '#fff' : undefined,
+                                                      '&:hover': { bgcolor: themeMode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }
+                                                    }}
+                                                  >
+                                                    <ArrowForwardIcon fontSize="large" />
+                                                  </IconButton>
+                                                </Tooltip>
+                                              );
+                                            })()}
                                           </Box>
                                         </Box>
                                       </Stack>
@@ -264,7 +395,19 @@ export default function TaskList({ themeMode }: { themeMode?: 'light' | 'dark' }
             <EditTaskDialog open={dialogOpen} onClose={() => setDialogOpen(false)} task={editing} onSaved={onSaved} />
             <CreateTaskDialog open={createOpen} onClose={() => setCreateOpen(false)} onCreated={fetchTasks} />
 
-            <Snackbar open={snack.open} autoHideDuration={2500} onClose={() => setSnack(s => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'top', horizontal: 'right' }}>
+            <Dialog open={!!confirm?.open} onClose={handleConfirmClose}>
+              <DialogTitle>Confirmar movimiento</DialogTitle>
+              <DialogContent>
+                <Typography sx={{ mb: 1 }}>La tarea está actualmente en <strong>{confirm?.from}</strong>.</Typography>
+                <Typography>¿Estás seguro de moverla a <strong>{confirm?.to}</strong>?</Typography>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={handleConfirmCancel} color="inherit">Cancelar</Button>
+                <Button onClick={handleConfirmAccept} variant="contained" color="primary">Confirmar</Button>
+              </DialogActions>
+            </Dialog>
+
+            <Snackbar open={snack.open} autoHideDuration={3000} onClose={() => setSnack(s => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
               <MuiAlert elevation={6} variant="filled" onClose={() => setSnack(s => ({ ...s, open: false }))} severity={snack.severity} sx={{ width: '100%' }}>
                 {snack.message}
               </MuiAlert>

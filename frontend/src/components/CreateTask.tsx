@@ -14,10 +14,12 @@ export default function CreateTask() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await axios.post('/tasks', { title, description });
+      const res = await axios.post('/tasks', { title, description });
+      const created = res.data;
       setTitle('');
       setDescription('');
-      window.dispatchEvent(new Event('tasks:updated'));
+      // Notify listeners with the created task so TaskList can update locally without full refetch
+      window.dispatchEvent(new CustomEvent('tasks:created', { detail: created }));
       Swal.fire({
         icon: 'success',
         title: 'Tarea creada',

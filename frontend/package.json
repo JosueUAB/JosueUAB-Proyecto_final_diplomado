@@ -16,6 +16,7 @@
     "axios": "^1.4.0",
     "proyecto-arista-diplomado": "file:..",
     "react": "^18.2.0",
+    "react-confetti": "^6.4.0",
     "react-dom": "^18.2.0",
     "sweetalert2": "^11.26.3"
   },

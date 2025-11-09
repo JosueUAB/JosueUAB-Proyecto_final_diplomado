@@ -26,36 +26,25 @@ type Task = {
 export default function EditTaskDialog({ open, onClose, task, onSaved }: { open: boolean; onClose: () => void; task?: Task | null; onSaved?: (updated: any) => void; }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [tagInput, setTagInput] = useState('');
-  const [labels, setLabels] = useState<Label[]>([]);
+  // labels removed from edit dialog per UX request
 
   useEffect(() => {
     if (task) {
       setTitle(task.title || '');
       setDescription(task.description || '');
-      setLabels(task.labels || []);
+      // labels intentionally not set/displayed
     } else {
       setTitle('');
       setDescription('');
-      setLabels([]);
+      // no labels
     }
   }, [task]);
 
-  const addTag = () => {
-    const name = tagInput.trim();
-    if (!name) return;
-    setLabels(prev => [...prev, { name }]);
-    setTagInput('');
-  };
-
-  const removeTag = (idx: number) => {
-    setLabels(prev => prev.filter((_, i) => i !== idx));
-  };
 
   const save = async () => {
     if (!task) return;
     try {
-      const res = await axios.put(`/tasks/${task._id}`, { title, description, labels });
+      const res = await axios.put(`/tasks/${task._id}`, { title, description });
       Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Tarea actualizada', timer: 1200, showConfirmButton: false });
       onSaved && onSaved(res.data);
       onClose();
@@ -69,20 +58,10 @@ export default function EditTaskDialog({ open, onClose, task, onSaved }: { open:
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>Editar tarea</DialogTitle>
       <DialogContent>
-        <Stack spacing={2} sx={{ pt: 1 }}>
+          <Stack spacing={2} sx={{ pt: 1 }}>
           <TextField label="Título" value={title} onChange={e => setTitle(e.target.value)} fullWidth />
           <TextField label="Descripción" value={description} onChange={e => setDescription(e.target.value)} fullWidth multiline rows={3} />
-          <Box>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <TextField label="Agregar etiqueta" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }} size="small" />
-              <Button onClick={addTag} variant="outlined">Agregar</Button>
-            </Stack>
-            <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }}>
-              {labels.map((l, i) => (
-                <Chip key={i} label={l.name} onDelete={() => removeTag(i)} sx={{ mr: 1, mb: 1 }} />
-              ))}
-            </Stack>
-          </Box>
+          {/* etiquetas ocultas por petición del usuario */}
         </Stack>
       </DialogContent>
       <DialogActions>
