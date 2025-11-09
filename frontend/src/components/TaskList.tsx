@@ -14,6 +14,8 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import Swal from 'sweetalert2';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import EditTaskDialog from './EditTaskDialog';
 
 type Task = {
   _id: string;
@@ -32,6 +34,8 @@ const columnOrder: { key: string; title: string; }[] = [
 export default function TaskList() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
+  const [editing, setEditing] = useState<Task | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -64,6 +68,38 @@ export default function TaskList() {
     }
   };
 
+  const onDragEnd = async (result: DropResult) => {
+    const { destination, source, draggableId } = result;
+    if (!destination) return;
+    // If dropped in same place, do nothing
+    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+
+    const movedTask = tasks.find(t => t._id === draggableId);
+    if (!movedTask) return;
+
+    const newStatus = destination.droppableId;
+    const newPosition = destination.index;
+
+    try {
+      await axios.put(`/tasks/${movedTask._id}`, { status: newStatus, position: newPosition });
+      // naive: refetch tasks to refresh order
+      fetchTasks();
+      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Tarea movida', timer: 1000, showConfirmButton: false });
+    } catch (err: any) {
+      Swal.fire({ icon: 'error', title: 'Error', text: err?.response?.data?.message || 'No se pudo mover' });
+    }
+  };
+
+  const openEdit = (task: Task) => {
+    setEditing(task);
+    setDialogOpen(true);
+  };
+
+  const onSaved = (updated: any) => {
+    // refresh list
+    fetchTasks();
+  };
+
   if (loading) {
     return (
       <Grid container spacing={2} sx={{ mt: 2 }}>
@@ -81,54 +117,75 @@ export default function TaskList() {
 
   return (
     <Box sx={{ mt: 2 }}>
-      <Grid container spacing={2}>
-        {columnOrder.map((col) => {
-          const columnTasks = tasks.filter(t => t.status === col.key);
-          return (
-            <Grid item xs={12} md={4} key={col.key}>
-              <Paper sx={{ p: 2, minHeight: 200 }} elevation={3}>
-                <Typography variant="h6" gutterBottom>{col.title} <Chip label={columnTasks.length} size="small" sx={{ ml: 1 }} /></Typography>
-                <Stack spacing={1}>
-                  {columnTasks.length === 0 && (
-                    <Typography variant="body2" color="text.secondary">No hay tareas</Typography>
-                  )}
+      <DragDropContext onDragEnd={onDragEnd}>
+        <Grid container spacing={2}>
+          {columnOrder.map((col) => {
+            const columnTasks = tasks.filter(t => t.status === col.key).sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+            return (
+              <Grid item xs={12} md={4} key={col.key}>
+                <Paper sx={{ p: 2, minHeight: 200 }} elevation={3}>
+                  <Typography variant="h6" gutterBottom>{col.title} <Chip label={columnTasks.length} size="small" sx={{ ml: 1 }} /></Typography>
 
-                  {columnTasks.map((t, i) => (
-                    <Grow in={true} key={t._id} timeout={300 + i * 80}>
-                      <Paper sx={{ p: 1.5, borderRadius: 1, boxShadow: 2 }}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                          <Box sx={{ width: '100%' }}>
-                            <Typography variant="subtitle1"><strong>{t.title}</strong></Typography>
-                            <Typography variant="body2" color="text.secondary">{t.description}</Typography>
-                            <Typography variant="caption" display="block" sx={{ mt: 1 }}>{new Date(t.createdAt).toLocaleString()}</Typography>
-                          </Box>
-                          <Box sx={{ ml: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                            <IconButton size="small" aria-label="more"><MoreHorizIcon fontSize="small" /></IconButton>
-                            <Box sx={{ display: 'flex', gap: 0.5 }}>
-                              {/* back button */}
-                              {col.key !== 'Pendiente' && (
-                                <IconButton size="small" color="primary" onClick={() => moveTask(t._id, col.key === 'En progreso' ? 'Pendiente' : 'En progreso')}>
-                                  <ArrowBackIcon fontSize="small" />
-                                </IconButton>
+                  <Droppable droppableId={col.key}>
+                    {(provided) => (
+                      <Box ref={provided.innerRef} {...provided.droppableProps}>
+                        <Stack spacing={1}>
+                          {columnTasks.length === 0 && (
+                            <Typography variant="body2" color="text.secondary">No hay tareas</Typography>
+                          )}
+
+                          {columnTasks.map((t, i) => (
+                            <Draggable draggableId={t._id} index={i} key={t._id}>
+                              {(dragProvided) => (
+                                <div ref={dragProvided.innerRef} {...dragProvided.draggableProps} {...dragProvided.dragHandleProps}>
+                                  <Grow in={true} timeout={300 + i * 80}>
+                                    <Paper sx={{ p: 1.5, borderRadius: 1, boxShadow: 2 }}>
+                                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                                        <Box sx={{ width: '100%' }}>
+                                          <Typography variant="subtitle1"><strong>{t.title}</strong></Typography>
+                                          <Typography variant="body2" color="text.secondary">{t.description}</Typography>
+                                          <Typography variant="caption" display="block" sx={{ mt: 1 }}>{new Date(t.createdAt).toLocaleString()}</Typography>
+                                          <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }}>
+                                            {(t.labels || []).map((l, idx) => (
+                                              <Chip key={idx} label={l.name} size="small" sx={{ backgroundColor: l.color || undefined, color: l.color ? '#fff' : undefined }} />
+                                            ))}
+                                          </Stack>
+                                        </Box>
+                                        <Box sx={{ ml: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                          <IconButton size="small" aria-label="more" onClick={() => openEdit(t)}><MoreHorizIcon fontSize="small" /></IconButton>
+                                          <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                            {col.key !== 'Pendiente' && (
+                                              <IconButton size="small" color="primary" onClick={() => moveTask(t._id, col.key === 'En progreso' ? 'Pendiente' : 'En progreso')}>
+                                                <ArrowBackIcon fontSize="small" />
+                                              </IconButton>
+                                            )}
+                                            {col.key !== 'Completada' && (
+                                              <IconButton size="small" color="success" onClick={() => moveTask(t._id, col.key === 'Pendiente' ? 'En progreso' : 'Completada')}>
+                                                <ArrowForwardIcon fontSize="small" />
+                                              </IconButton>
+                                            )}
+                                          </Box>
+                                        </Box>
+                                      </Stack>
+                                    </Paper>
+                                  </Grow>
+                                </div>
                               )}
-                              {/* forward button */}
-                              {col.key !== 'Completada' && (
-                                <IconButton size="small" color="success" onClick={() => moveTask(t._id, col.key === 'Pendiente' ? 'En progreso' : 'Completada')}>
-                                  <ArrowForwardIcon fontSize="small" />
-                                </IconButton>
-                              )}
-                            </Box>
-                          </Box>
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
                         </Stack>
-                      </Paper>
-                    </Grow>
-                  ))}
-                </Stack>
-              </Paper>
-            </Grid>
-          );
-        })}
-      </Grid>
+                      </Box>
+                    )}
+                  </Droppable>
+                </Paper>
+              </Grid>
+            );
+          })}
+        </Grid>
+      </DragDropContext>
+
+      <EditTaskDialog open={dialogOpen} onClose={() => setDialogOpen(false)} task={editing} onSaved={onSaved} />
     </Box>
   );
 }
