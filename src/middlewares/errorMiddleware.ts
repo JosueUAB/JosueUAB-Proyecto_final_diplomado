@@ -8,12 +8,14 @@ const errorMiddleware = (
   res: Response,
   next: NextFunction
 ) => {
-  // Si ya es un AppError, usamos sus valores
+  // Si ya es un AppError, usamos sus valores y devolvemos details si los tiene
   if (err instanceof AppError) {
-    return res.status(err.statusCode).json({
+    const payload: any = {
       status: 'error',
       message: err.message,
-    });
+    };
+    if (err.details) payload.details = err.details;
+    return res.status(err.statusCode).json(payload);
   }
 
   // Errores inesperados
