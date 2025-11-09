@@ -10,7 +10,7 @@ import Chip from '@mui/material/Chip';
 import Box from '@mui/material/Box';
 import AddIcon from '@mui/icons-material/Add';
 import Swal from 'sweetalert2';
-import axios from 'axios';
+import axios from '../config/axios';
 
 type Label = { name: string; color?: string };
 

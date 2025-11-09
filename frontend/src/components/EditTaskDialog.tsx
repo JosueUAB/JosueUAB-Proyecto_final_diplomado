@@ -10,7 +10,7 @@ import Stack from '@mui/material/Stack';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import DeleteIcon from '@mui/icons-material/Delete';
-import axios from 'axios';
+import axios from '../config/axios';
 import Swal from 'sweetalert2';
 
 type Label = { name: string; color?: string };
