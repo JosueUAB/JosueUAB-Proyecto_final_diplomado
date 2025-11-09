@@ -18,3 +18,14 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
     res.status(500).json({ message: 'Error al crear la tarea' });
   }
 };
+
+// Obtener todas las tareas
+export const getTasks = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tasks = await Task.find().sort({ createdAt: -1 });
+    res.json(tasks);
+  } catch (error) {
+    console.error('Error al obtener tareas:', error);
+    res.status(500).json({ message: 'Error al obtener las tareas' });
+  }
+};
