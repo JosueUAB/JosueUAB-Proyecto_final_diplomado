@@ -1,6 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import connectDB from './config/database';
+import taskRoutes from './routes/taskRoutes';
 
 dotenv.config();
 
@@ -15,6 +16,8 @@ app.get('/', (req, res) => {
 
 const start = async () => {
   await connectDB();
+  app.use('/tasks', taskRoutes);
+
   app.listen(port, () => {
     console.log(`Servidor iniciado en http://localhost:${port}`);
   });
