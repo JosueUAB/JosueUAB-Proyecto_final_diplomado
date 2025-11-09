@@ -18,6 +18,10 @@ const start = async () => {
   await connectDB();
   app.use('/tasks', taskRoutes);
 
+  // Middleware de manejo de errores (debe ir después de las rutas)
+  import errorMiddleware from './middlewares/errorMiddleware';
+  app.use(errorMiddleware);
+
   app.listen(port, () => {
     console.log(`Servidor iniciado en http://localhost:${port}`);
   });
@@ -25,6 +29,3 @@ const start = async () => {
 
 start();
 
-// Middleware de manejo de errores (debe ir después de las rutas)
-import errorMiddleware from './middlewares/errorMiddleware';
-app.use(errorMiddleware);
