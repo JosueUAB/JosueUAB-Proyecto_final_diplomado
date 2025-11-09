@@ -24,3 +24,7 @@ const start = async () => {
 };
 
 start();
+
+// Middleware de manejo de errores (debe ir después de las rutas)
+import errorMiddleware from './middlewares/errorMiddleware';
+app.use(errorMiddleware);

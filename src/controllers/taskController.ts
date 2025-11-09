@@ -1,56 +1,54 @@
-import { Request, Response } from 'express';
-import Task from '../models/task';
+import { Request, Response, NextFunction } from 'express';
+import {
+  createTaskService,
+  getTasksService,
+  updateTaskStatusService,
+  getTaskByIdService,
+} from '../services/taskService';
+import AppError from '../utils/AppError';
 
 // Crea una nueva tarea
-export const createTask = async (req: Request, res: Response): Promise<void> => {
+export const createTask = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { title, description } = req.body;
     if (!title) {
-      res.status(400).json({ message: 'El título es requerido' });
-      return;
+      return next(new AppError('El título es requerido', 400));
     }
 
-    const task = new Task({ title, description });
-    await task.save();
+    const task = await createTaskService({ title, description } as any);
     res.status(201).json(task);
   } catch (error) {
-    console.error('Error al crear tarea:', error);
-    res.status(500).json({ message: 'Error al crear la tarea' });
+    next(error);
   }
 };
-
 // Obtener todas las tareas
-export const getTasks = async (req: Request, res: Response): Promise<void> => {
+export const getTasks = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const tasks = await Task.find().sort({ createdAt: -1 });
+    const tasks = await getTasksService();
     res.json(tasks);
   } catch (error) {
-    console.error('Error al obtener tareas:', error);
-    res.status(500).json({ message: 'Error al obtener las tareas' });
+    next(error);
   }
 };
 
 // Actualizar el estado de una tarea
-export const updateTaskStatus = async (req: Request, res: Response): Promise<void> => {
+export const updateTaskStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
     const { status } = req.body;
+    const updated = await updateTaskStatusService(id, status);
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+};
 
-    const validStatuses = ['Pendiente', 'En progreso', 'Completada'];
-    if (!status || !validStatuses.includes(status)) {
-      res.status(400).json({ message: 'Estado inválido' });
-      return;
-    }
-
-    const task = await Task.findByIdAndUpdate(id, { status }, { new: true });
-    if (!task) {
-      res.status(404).json({ message: 'Tarea no encontrada' });
-      return;
-    }
-
+export const getTaskById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const task = await getTaskByIdService(id);
     res.json(task);
   } catch (error) {
-    console.error('Error al actualizar tarea:', error);
-    res.status(500).json({ message: 'Error al actualizar la tarea' });
+    next(error);
   }
 };
