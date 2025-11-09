@@ -1,5 +1,6 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import connectDB from './config/database';
 
 dotenv.config();
 
@@ -12,6 +13,11 @@ app.get('/', (req, res) => {
   res.json({ message: 'API de gestión de tareas - en construcción' });
 });
 
-app.listen(port, () => {
-  console.log(`Servidor iniciado en http://localhost:${port}`);
-});
+const start = async () => {
+  await connectDB();
+  app.listen(port, () => {
+    console.log(`Servidor iniciado en http://localhost:${port}`);
+  });
+};
+
+start();
