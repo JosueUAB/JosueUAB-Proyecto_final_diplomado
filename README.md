@@ -1,5 +1,11 @@
 # 🧠 Proyecto Final del Módulo - Sistema de Gestión de Tareas
 
+- **ENLACE BACKEND DEPLOYADO: ** 
+https://backend-project-diplomado.onrender.com/tasks
+- **ENLACE FRONTEND DEPLOYADO:** https://josueuab.github.io/frontend_project_diplomado/
+
+
+
 **Desarrollo Dirigido por Especificaciones con IA (Spec-Driven Development)**  
 **Integrando TypeScript, REST, Principios SOLID y Arquitectura MVC**
 
